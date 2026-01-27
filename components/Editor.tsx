@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Wand2, Loader2, Check, Settings, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { useLibraryStore, useRuntimeStore } from '../store/useStore';
 import { splitLyrics } from '../services/splitter';
-import { Song, FontSize } from '../types';
+import { Song, FontSize, Line } from '../types';
 
 const Editor: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -31,6 +31,10 @@ const Editor: React.FC = () => {
                 if (!prev || prev.id !== song.id) {
                     const deepCopy = JSON.parse(JSON.stringify(song));
                     if (deepCopy.settings.showProgress === undefined) deepCopy.settings.showProgress = true;
+                    // Migration for legacy lines (string[])
+                    if (deepCopy.lines.length > 0 && typeof deepCopy.lines[0] === 'string') {
+                        deepCopy.lines = (deepCopy.lines as unknown as string[]).map(l => ({ content: l }));
+                    }
                     return deepCopy;
                 }
                 return prev;
@@ -131,14 +135,17 @@ const Editor: React.FC = () => {
             const line = lines[i];
             if (!line) continue;
 
-            const idx = raw.indexOf(line, searchCursor);
+            const lineText = line.content;
+            if (!lineText) continue;
+
+            const idx = raw.indexOf(lineText, searchCursor);
             if (idx !== -1) {
                 if (i === activeLineIdx) {
                     start = idx;
-                    end = idx + line.length;
+                    end = idx + lineText.length;
                     break;
                 }
-                searchCursor = idx + line.length;
+                searchCursor = idx + lineText.length;
             }
         }
 
@@ -167,7 +174,22 @@ const Editor: React.FC = () => {
 
     const updateLine = (idx: number, text: string) => {
         const newLines = [...localSong.lines];
-        newLines[idx] = text;
+        newLines[idx] = { ...newLines[idx], content: text };
+        setLocalSong({ ...localSong, lines: newLines });
+    };
+
+    const updateInstruction = (idx: number, instruction: string) => {
+        const newLines = [...localSong.lines];
+        newLines[idx] = { ...newLines[idx], instruction };
+        setLocalSong({ ...localSong, lines: newLines });
+    };
+
+    const updateInstructionStyle = (idx: number, color?: string, backgroundColor?: string) => {
+        const newLines = [...localSong.lines];
+        newLines[idx] = {
+            ...newLines[idx],
+            style: { ...newLines[idx].style, ...(color && { color }), ...(backgroundColor && { backgroundColor }) }
+        };
         setLocalSong({ ...localSong, lines: newLines });
     };
 
@@ -214,15 +236,16 @@ const Editor: React.FC = () => {
             e.preventDefault();
             const input = e.currentTarget as HTMLTextAreaElement;
             const cursorPosition = input.selectionStart;
-            const currentText = localSong.lines[idx];
+            const currentLine = localSong.lines[idx];
+            const currentText = currentLine.content;
 
             const textBefore = currentText.slice(0, cursorPosition);
             const textAfter = currentText.slice(cursorPosition);
 
             const newLines = [...localSong.lines];
 
-            newLines[idx] = textBefore;
-            newLines.splice(idx + 1, 0, textAfter);
+            newLines[idx] = { ...currentLine, content: textBefore };
+            newLines.splice(idx + 1, 0, { content: textAfter });
 
             setLocalSong({ ...localSong, lines: newLines });
             setActiveLineIdx(idx + 1);
@@ -233,12 +256,15 @@ const Editor: React.FC = () => {
             const input = e.currentTarget as HTMLTextAreaElement;
             if (input.selectionStart === 0 && input.selectionEnd === 0 && idx > 0) {
                 e.preventDefault();
-                const currentText = localSong.lines[idx];
-                const prevText = localSong.lines[idx - 1];
+                const currentLine = localSong.lines[idx];
+                const prevLine = localSong.lines[idx - 1];
 
                 const newLines = [...localSong.lines];
                 newLines.splice(idx, 1);
-                newLines[idx - 1] = prevText + currentText;
+                newLines[idx - 1] = {
+                    ...prevLine,
+                    content: prevLine.content + currentLine.content
+                };
 
                 setLocalSong({ ...localSong, lines: newLines });
                 setActiveLineIdx(idx - 1);
@@ -405,21 +431,48 @@ const Editor: React.FC = () => {
                                     }`}
                                 onClick={() => setActiveLineIdx(idx)}
                             >
-                                <span className="text-xs text-gray-600 font-mono mt-1 w-6 text-right select-none">{idx + 1}</span>
-                                <textarea
-                                    ref={el => lineInputsRef.current[idx] = el}
-                                    value={line}
-                                    onChange={(e) => updateLine(idx, e.target.value)}
-                                    onKeyDown={(e) => handleLineKeyDown(e, idx)}
-                                    rows={1}
-                                    className="flex-1 bg-transparent resize-none overflow-hidden focus:outline-none text-lg text-gray-200"
-                                    style={{ minHeight: '1.75rem', height: 'auto' }}
-                                    onInput={(e) => {
-                                        const target = e.target as HTMLTextAreaElement;
-                                        target.style.height = 'auto';
-                                        target.style.height = `${target.scrollHeight}px`;
-                                    }}
-                                />
+                                <span className="text-xs text-gray-600 font-mono mt-2 w-6 text-right select-none">{idx + 1}</span>
+
+                                <div className="flex-1 flex flex-col gap-2">
+                                    <textarea
+                                        ref={el => lineInputsRef.current[idx] = el}
+                                        value={line.content}
+                                        onChange={(e) => updateLine(idx, e.target.value)}
+                                        onKeyDown={(e) => handleLineKeyDown(e, idx)}
+                                        rows={1}
+                                        className="w-full bg-transparent resize-none overflow-hidden focus:outline-none text-lg text-gray-200 leading-snug"
+                                        style={{ minHeight: '1.75rem', height: 'auto' }}
+                                        onInput={(e) => {
+                                            const target = e.target as HTMLTextAreaElement;
+                                            target.style.height = 'auto';
+                                            target.style.height = `${target.scrollHeight}px`;
+                                        }}
+                                        placeholder="Lyrics..."
+                                    />
+
+                                    {/* Instruction Input */}
+                                    <div className={`flex items-center gap-2 transition-opacity ${line.instruction || idx === activeLineIdx ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                                        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Stage:</span>
+                                        <input
+                                            value={line.instruction || ''}
+                                            onChange={(e) => updateInstruction(idx, e.target.value)}
+                                            placeholder="Add stage instruction..."
+                                            className="flex-1 bg-gray-950/50 border border-gray-800 focus:border-purple-500 rounded px-2 py-1 text-sm focus:outline-none text-purple-300 placeholder-gray-700"
+                                            style={{
+                                                color: line.style?.color,
+                                                backgroundColor: line.style?.backgroundColor
+                                            }}
+                                        />
+                                        {/* Style Controls */}
+                                        <div className="flex items-center gap-1 bg-gray-950 rounded p-1 border border-gray-800">
+                                            <button tabIndex={-1} onClick={(e) => { e.stopPropagation(); updateInstructionStyle(idx, '#ffffff', '#ef4444'); }} className="w-3 h-3 rounded-full bg-red-500 hover:scale-110 transition-transform" title="Urgent (Red)" />
+                                            <button tabIndex={-1} onClick={(e) => { e.stopPropagation(); updateInstructionStyle(idx, '#ffffff', '#3b82f6'); }} className="w-3 h-3 rounded-full bg-blue-500 hover:scale-110 transition-transform" title="Info (Blue)" />
+                                            <button tabIndex={-1} onClick={(e) => { e.stopPropagation(); updateInstructionStyle(idx, '#000000', '#eab308'); }} className="w-3 h-3 rounded-full bg-yellow-500 hover:scale-110 transition-transform" title="Warning (Yellow)" />
+                                            <button tabIndex={-1} onClick={(e) => { e.stopPropagation(); updateInstructionStyle(idx, undefined, undefined); }} className="text-[10px] text-gray-500 hover:text-white px-1" title="Clear Style">x</button>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
                                     <button tabIndex={-1} onClick={(e) => { e.stopPropagation(); handleLineKeyDown({ key: 'ArrowUp', metaKey: true, preventDefault: () => { } } as any, idx) }} className="p-1 hover:bg-gray-700 rounded text-gray-500"><ChevronUp size={14} /></button>
                                     <button tabIndex={-1} onClick={(e) => { e.stopPropagation(); handleLineKeyDown({ key: 'ArrowDown', metaKey: true, preventDefault: () => { } } as any, idx) }} className="p-1 hover:bg-gray-700 rounded text-gray-500"><ChevronDown size={14} /></button>
@@ -432,7 +485,7 @@ const Editor: React.FC = () => {
                                 <p>No lines yet.</p>
                                 <p className="text-sm">Click "Auto Split" or type manually.</p>
                                 <button
-                                    onClick={() => setLocalSong({ ...localSong, lines: [""] })}
+                                    onClick={() => setLocalSong({ ...localSong, lines: [{ content: "" }] })}
                                     className="mt-4 text-blue-400 hover:text-blue-300 text-sm"
                                 >Add First Line</button>
                             </div>

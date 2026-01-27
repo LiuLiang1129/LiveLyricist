@@ -1,8 +1,10 @@
+import { Line } from '../types';
+
 /**
  * Splits raw lyrics into lines based on punctuation and target length.
  * Focuses on maintaining semantic meaning where possible.
  */
-export const splitLyrics = (raw: string, targetLen: number): string[] => {
+export const splitLyrics = (raw: string, targetLen: number): Line[] => {
   if (!raw) return [];
 
   // Protect common abbreviations and initials
@@ -24,12 +26,14 @@ export const splitLyrics = (raw: string, targetLen: number): string[] => {
   }
 
   // Restore periods
-  return lines.map(line => line.replace(/\u0000/g, '.'));
+  return lines.map(line => ({
+    content: line.replace(/\u0000/g, '.')
+  }));
 };
 
 const processSegment = (text: string, limit: number, accumulator: string[]) => {
   // Tolerance allows slightly longer lines if they are complete semantic units
-  const maxLen = Math.max(limit * 1.5, limit + 5); 
+  const maxLen = Math.max(limit * 1.5, limit + 5);
 
   if (text.length <= maxLen) {
     accumulator.push(text);
@@ -61,7 +65,7 @@ const processSegment = (text: string, limit: number, accumulator: string[]) => {
 
 const trySplitAndReflow = (text: string, separatorRegex: RegExp, limit: number, accumulator: string[]): boolean => {
   const parts = text.split(separatorRegex);
-  
+
   // If no split occurred (length 1), or just a delimiter at end (length 3 with empty end), 
   // we might not have effectively split the semantic structure. 
   // Regex split with capturing group returns [text, sep, text, sep...].
@@ -74,7 +78,7 @@ const trySplitAndReflow = (text: string, separatorRegex: RegExp, limit: number, 
     const combined = (content + sep).trim();
     if (combined) atoms.push(combined);
   }
-  
+
   // If we only have one atom after trimming, splitting didn't break it internally
   if (atoms.length < 2) return false;
 
@@ -89,11 +93,11 @@ const trySplitAndReflow = (text: string, separatorRegex: RegExp, limit: number, 
       if (currentLine) {
         accumulator.push(currentLine);
       }
-      
+
       // If the atom itself is huge, we need to process it recursively.
       if (atom.length > limit * 1.5) {
         processSegment(atom, limit, accumulator);
-        currentLine = ""; 
+        currentLine = "";
       } else {
         currentLine = atom;
       }
@@ -110,14 +114,14 @@ const trySplitAndReflow = (text: string, separatorRegex: RegExp, limit: number, 
 const findBestSplitIndex = (text: string, limit: number): number => {
   // Look for a space before the limit
   let index = text.lastIndexOf(' ', limit);
-  
+
   // If found space is too early (e.g. "A [very long word]"), creating a tiny orphan line "A",
   // we might want to check if there is a space just AFTER the limit.
-  if (index < limit * 0.4) { 
-     const nextSpace = text.indexOf(' ', limit);
-     if (nextSpace !== -1 && nextSpace <= limit * 1.4) {
-         return nextSpace;
-     }
+  if (index < limit * 0.4) {
+    const nextSpace = text.indexOf(' ', limit);
+    if (nextSpace !== -1 && nextSpace <= limit * 1.4) {
+      return nextSpace;
+    }
   }
 
   // If absolutely no space found before limit

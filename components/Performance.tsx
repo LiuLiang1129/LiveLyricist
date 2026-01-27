@@ -12,12 +12,24 @@ const Performance: React.FC = () => {
     const [showUI, setShowUI] = useState(true);
     const [blackout, setBlackout] = useState(false);
 
+    const [mode, setMode] = useState<'audience' | 'artist'>('audience');
+
     const activeCollection = performanceQueue ? performanceQueue.map(id => songs.find(s => s.id === id)!) : songs;
     const songIndex = activeCollection.findIndex(s => s?.id === id);
     const song = activeCollection[songIndex];
 
     const nextSong = activeCollection[songIndex + 1];
     const prevSong = activeCollection[songIndex - 1];
+
+    // Helper to handle legacy string lines vs new Line objects
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const getLineData = useCallback((idx: number) => {
+        if (!song) return null;
+        const line = song.lines[idx];
+        if (!line) return null;
+        if (typeof line === 'string') return { content: line, instruction: '' };
+        return line;
+    }, [song]);
 
     // Keyboard controls
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -33,9 +45,6 @@ const Performance: React.FC = () => {
                     // Move to next song
                     setCurrentLineIndex(0);
                     navigate(`/perform/${nextSong.id}`);
-                } else {
-                    // End of setlist - do nothing or blackout?
-                    // Just stay on last line for now.
                 }
             } else {
                 nextLine(song.lines.length);
@@ -66,12 +75,10 @@ const Performance: React.FC = () => {
         }
 
         // UI Toggles
-        // UI Toggles
         else if (e.key === 'Escape') {
             e.preventDefault();
             const returnPath = location.state?.returnPath;
             if (returnPath) {
-                // Keep the state for next time? No, we are leaving.
                 navigate(returnPath);
             } else {
                 navigate(`/edit/${song.id}`);
@@ -85,6 +92,10 @@ const Performance: React.FC = () => {
             e.preventDefault();
             setShowUI(prev => !prev);
         }
+        else if (e.key === 'm') {
+            e.preventDefault();
+            setMode(prev => prev === 'audience' ? 'artist' : 'audience');
+        }
     }, [song, nextSong, prevSong, currentLineIndex, nextLine, prevLine, setCurrentLineIndex, navigate, location]);
 
     useEffect(() => {
@@ -94,7 +105,7 @@ const Performance: React.FC = () => {
 
     if (!song) return null;
 
-    const currentLine = song.lines[currentLineIndex] || "";
+    const currentLineData = getLineData(currentLineIndex);
     const isLastLine = currentLineIndex === song.lines.length - 1;
 
     // Font size calculation
@@ -106,18 +117,24 @@ const Performance: React.FC = () => {
     const fontSizeClass = fontSizes[song.settings.fontSize];
 
     return (
-        <div className="fixed inset-0 bg-black text-white flex flex-col cursor-none">
+        <div className={`fixed inset-0 bg-black text-white flex flex-col ${mode === 'audience' ? 'cursor-none' : ''}`}>
             {/* UI Overlay (Hidden by default or toggled) */}
             <div className={`absolute top-0 left-0 w-full p-6 flex justify-between items-start transition-opacity duration-300 ${showUI ? 'opacity-100' : 'opacity-0'} z-20`}>
                 <div className="flex flex-col">
                     <h2 className="text-gray-500 font-bold text-lg flex items-center gap-2">
                         {songIndex + 1}. {song.title}
                         {blackout && <span className="text-red-500 text-xs px-2 py-0.5 border border-red-500 rounded uppercase">Blackout</span>}
+                        <span className={`text-xs px-2 py-0.5 border rounded uppercase ${mode === 'artist' ? 'border-purple-500 text-purple-500' : 'border-gray-700 text-gray-700'}`}>
+                            {mode === 'audience' ? 'Audience' : 'Artist'}
+                        </span>
                     </h2>
                     <p className="text-gray-600 text-sm">Line {currentLineIndex + 1} / {song.lines.length}</p>
                 </div>
                 <div className="flex gap-2">
-                    <button className="text-gray-600 p-2 rounded border border-gray-800 text-xs">Space / → Next</button>
+                    <button onClick={() => setMode(prev => prev === 'audience' ? 'artist' : 'audience')} className="text-gray-600 hover:text-white px-2 rounded border border-gray-800 text-xs uppercase font-bold transition-colors">
+                        {mode === 'audience' ? 'Switch to Artist' : 'Switch to Audience'}
+                    </button>
+                    <button className="text-gray-600 p-2 rounded border border-gray-800 text-xs hidden md:block">Space / → Next</button>
                     <button
                         onClick={() => {
                             const returnPath = location.state?.returnPath;
@@ -159,9 +176,46 @@ const Performance: React.FC = () => {
                 {blackout ? (
                     <div className="w-4 h-4 rounded-full bg-red-900/20" title="Blackout Active"></div>
                 ) : (
-                    <h1 className={`font-bold leading-tight select-none tracking-wide transition-all duration-200 ${fontSizeClass}`}>
-                        {currentLine || <span className="text-gray-900">—</span>}
-                    </h1>
+                    mode === 'audience' ? (
+                        <h1 className={`font-bold leading-tight select-none tracking-wide transition-all duration-200 ${fontSizeClass}`}>
+                            {currentLineData?.content || <span className="text-gray-900">—</span>}
+                        </h1>
+                    ) : (
+                        // Artist Mode View
+                        <div className="flex flex-col gap-6 max-w-5xl w-full">
+                            {/* Instruction (Top, Prominent) */}
+                            {currentLineData?.instruction && (
+                                <div
+                                    className="text-3xl md:text-5xl font-bold px-6 py-4 rounded-xl mx-auto mb-4 animate-in fade-in slide-in-from-top-4"
+                                    style={{
+                                        color: currentLineData.style?.color || '#a855f7',
+                                        backgroundColor: currentLineData.style?.backgroundColor || 'rgba(88, 28, 135, 0.2)'
+                                    }}
+                                >
+                                    {currentLineData.instruction}
+                                </div>
+                            )}
+
+                            {/* Current Line */}
+                            <h1 className={`font-bold leading-tight ${fontSizeClass} transition-all duration-200`}>
+                                {currentLineData?.content || <span className="text-gray-800">—</span>}
+                            </h1>
+
+                            {/* Upcoming Lines */}
+                            <div className="flex flex-col gap-4 mt-8 w-full border-t border-gray-800 pt-8">
+                                {getLineData(currentLineIndex + 1) && (
+                                    <div className="text-4xl md:text-6xl font-bold text-gray-300 transition-all duration-300">
+                                        {getLineData(currentLineIndex + 1)?.content}
+                                    </div>
+                                )}
+                                {getLineData(currentLineIndex + 2) && (
+                                    <div className="text-2xl md:text-4xl font-medium text-gray-500 transition-all duration-300">
+                                        {getLineData(currentLineIndex + 2)?.content}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )
                 )}
             </div>
 

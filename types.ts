@@ -6,12 +6,21 @@ export interface SongSettings {
   showProgress: boolean;
 }
 
+export interface Line {
+  content: string;
+  instruction?: string;
+  style?: {
+    color?: string;
+    backgroundColor?: string;
+  };
+}
+
 export interface Song {
   id: string;
   title: string;
   artist: string;
   rawLyrics: string;
-  lines: string[];
+  lines: Line[];
   settings: SongSettings;
   updatedAt: number;
 }

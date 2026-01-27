@@ -72,6 +72,28 @@ const PlaylistEditor: React.FC = () => {
         }
     };
 
+    const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+
+    const handleDragStart = (index: number) => {
+        setDraggedItemIndex(index);
+    };
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        // Optional: Add visual feedback logic here if needed, e.g. reordering on hover
+    };
+
+    const handleDrop = (targetIndex: number) => {
+        if (draggedItemIndex === null || draggedItemIndex === targetIndex) return;
+
+        const newSongs = [...playlist.songs];
+        const [movedItem] = newSongs.splice(draggedItemIndex, 1);
+        newSongs.splice(targetIndex, 0, movedItem);
+
+        updatePlaylist(playlist.id, { songs: newSongs });
+        setDraggedItemIndex(null);
+    };
+
     return (
         <div className="h-screen flex flex-col bg-gray-900 text-gray-200">
             {/* Header */}
@@ -126,23 +148,26 @@ const PlaylistEditor: React.FC = () => {
                     playlistSongs.map((song, idx) => (
                         <div
                             key={`${song.id}-${idx}`}
+                            draggable
+                            onDragStart={() => handleDragStart(idx)}
+                            onDragOver={(e) => handleDragOver(e, idx)}
+                            onDrop={() => handleDrop(idx)}
                             onClick={() => setSelectedSongId(song.id)}
-                            className={`flex items-center gap-3 p-3 rounded-lg border group cursor-pointer transition-all ${selectedSongId === song.id
-                                    ? 'bg-yellow-900/20 border-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.1)]'
-                                    : 'bg-gray-800/40 border-gray-800 hover:border-gray-700'
+                            className={`flex items-center gap-3 p-3 rounded-lg border group cursor-move transition-all ${selectedSongId === song.id
+                                ? 'bg-yellow-900/20 border-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.1)]'
+                                : draggedItemIndex === idx ? 'opacity-50 border-blue-500 border-dashed bg-gray-800' : 'bg-gray-800/40 border-gray-800 hover:border-gray-700'
                                 }`}
                         >
+                            <div className="text-gray-600">
+                                <GripVertical size={16} />
+                            </div>
                             <span className={`font-mono w-6 text-right text-sm ${selectedSongId === song.id ? 'text-yellow-400' : 'text-gray-600'}`}>{idx + 1}</span>
                             <div className="flex-1">
                                 <div className={`font-medium ${selectedSongId === song.id ? 'text-white' : 'text-gray-200'}`}>{song.title}</div>
                                 <div className="text-xs text-gray-500">{song.artist}</div>
                             </div>
 
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <div className="flex flex-col mr-2">
-                                    <button onClick={(e) => { e.stopPropagation(); handleMoveSong(idx, 'up') }} disabled={idx === 0} className="p-1 hover:text-white text-gray-500 disabled:opacity-20"><ArrowLeft size={12} className="rotate-90" /></button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleMoveSong(idx, 'down') }} disabled={idx === playlistSongs.length - 1} className="p-1 hover:text-white text-gray-500 disabled:opacity-20"><ArrowLeft size={12} className="-rotate-90" /></button>
-                                </div>
+                            <div className="flex items-center gap-1 opacity-100 transition-opacity">
                                 <button onClick={(e) => handleRemoveSong(e, idx)} className="p-2 hover:bg-red-900/20 text-gray-500 hover:text-red-400 rounded transition-colors">
                                     <X size={16} />
                                 </button>
