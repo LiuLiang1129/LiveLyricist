@@ -14,7 +14,10 @@ const Performance: React.FC = () => {
 
     const [mode, setMode] = useState<'audience' | 'artist'>('audience');
 
-    const activeCollection = performanceQueue ? performanceQueue.map(id => songs.find(s => s.id === id)!) : songs;
+    const queuedSongs = performanceQueue
+        ? performanceQueue.map(id => songs.find(s => s.id === id)).filter((s): s is NonNullable<typeof s> => Boolean(s))
+        : null;
+    const activeCollection = queuedSongs && queuedSongs.length > 0 ? queuedSongs : songs;
     const songIndex = activeCollection.findIndex(s => s?.id === id);
     const song = activeCollection[songIndex];
 
@@ -35,30 +38,36 @@ const Performance: React.FC = () => {
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (!song) return;
 
+        const totalLines = song.lines.length;
+
         // Next Line / Next Song
         if (e.code === 'Space' || e.key === 'ArrowRight') {
             e.preventDefault();
 
+            if (totalLines === 0) return;
+
             // If at end of song
-            if (currentLineIndex >= song.lines.length - 1) {
+            if (currentLineIndex >= totalLines - 1) {
                 if (nextSong) {
                     // Move to next song
                     setCurrentLineIndex(0);
                     navigate(`/perform/${nextSong.id}`);
                 }
             } else {
-                nextLine(song.lines.length);
+                nextLine(totalLines);
             }
         }
         // Prev Line / Prev Song
         else if (e.key === 'ArrowLeft') {
             e.preventDefault();
 
+            if (totalLines === 0) return;
+
             // If at start of song
             if (currentLineIndex <= 0) {
                 if (prevSong) {
                     // Move to previous song, LAST line (for continuity)
-                    setCurrentLineIndex(prevSong.lines.length - 1);
+                    setCurrentLineIndex(Math.max(prevSong.lines.length - 1, 0));
                     navigate(`/perform/${prevSong.id}`);
                 }
             } else {
@@ -71,7 +80,7 @@ const Performance: React.FC = () => {
         }
         else if (e.key === 'End') {
             e.preventDefault();
-            setCurrentLineIndex(song.lines.length - 1);
+            setCurrentLineIndex(Math.max(song.lines.length - 1, 0));
         }
 
         // UI Toggles
@@ -106,7 +115,10 @@ const Performance: React.FC = () => {
     if (!song) return null;
 
     const currentLineData = getLineData(currentLineIndex);
-    const isLastLine = currentLineIndex === song.lines.length - 1;
+    const isLastLine = song.lines.length > 0 && currentLineIndex === song.lines.length - 1;
+    const progressPercent = song.lines.length > 0
+        ? ((currentLineIndex + 1) / song.lines.length) * 100
+        : 0;
 
     // Font size calculation
     const fontSizes = {
@@ -224,7 +236,7 @@ const Performance: React.FC = () => {
                 <div className="absolute bottom-0 left-0 h-1 bg-gray-900 w-full z-20">
                     <div
                         className="h-full bg-blue-900 transition-all duration-300 ease-out"
-                        style={{ width: `${((currentLineIndex + 1) / song.lines.length) * 100}%` }}
+                        style={{ width: `${progressPercent}%` }}
                     />
                 </div>
             )}

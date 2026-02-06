@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Plus, X, GripVertical, Trash2, Music } from 'lucide-react';
 import { useLibraryStore, useRuntimeStore } from '../store/useStore';
@@ -18,6 +18,13 @@ const PlaylistEditor: React.FC = () => {
     if (!playlist) {
         return <div className="p-8 text-center text-gray-500">Playlist not found</div>;
     }
+
+    useEffect(() => {
+        const validSongIds = playlist.songs.filter(songId => songs.some(song => song.id === songId));
+        if (validSongIds.length !== playlist.songs.length) {
+            updatePlaylist(playlist.id, { songs: validSongIds });
+        }
+    }, [playlist.id, playlist.songs, songs, updatePlaylist]);
 
     const playlistSongs = playlist.songs
         .map(songId => songs.find(s => s.id === songId))
