@@ -75,10 +75,12 @@ export const useLibraryStore = create<LibraryState>()(
 export const useRuntimeStore = create<RuntimeState>((set) => ({
   currentLineIndex: 0,
   performanceQueue: null,
-  setCurrentLineIndex: (index) => set({ currentLineIndex: index }),
+  setCurrentLineIndex: (index) => set({ currentLineIndex: Math.max(0, index) }),
   setPerformanceQueue: (queue) => set({ performanceQueue: queue }),
   nextLine: (totalLines) => set((state) => ({
-    currentLineIndex: Math.min(state.currentLineIndex + 1, totalLines - 1)
+    currentLineIndex: totalLines <= 0
+      ? 0
+      : Math.min(state.currentLineIndex + 1, totalLines - 1)
   })),
   prevLine: () => set((state) => ({
     currentLineIndex: Math.max(state.currentLineIndex - 1, 0)
