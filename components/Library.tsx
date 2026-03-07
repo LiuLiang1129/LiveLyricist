@@ -18,7 +18,7 @@ const Library: React.FC = () => {
       artist: '',
       rawLyrics: '',
       lines: [],
-      settings: { targetLen: 14, fontSize: 'XL', showProgress: true },
+      settings: { targetLen: 14, fontSize: 'XL', showProgress: true, align: 'center' },
       updatedAt: Date.now(),
     };
     addSong(newSong);

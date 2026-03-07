@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Wand2, Loader2, Check, Settings, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Play, Wand2, Loader2, Check, Settings, X, ChevronUp, ChevronDown, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useLibraryStore, useRuntimeStore } from '../store/useStore';
 import { splitLyrics } from '../services/splitter';
 import { Song, FontSize, Line } from '../types';
@@ -341,6 +341,30 @@ const Editor: React.FC = () => {
                                 {size}
                             </button>
                         ))}
+                    </div>
+
+                    <div className="flex items-center bg-gray-800 rounded-md px-2 py-1 mr-2">
+                        <button
+                            onClick={() => setLocalSong({ ...localSong, settings: { ...localSong.settings, align: 'left' } })}
+                            className={`p-1.5 rounded ${localSong.settings.align === 'left' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                            title="Align Left"
+                        >
+                            <AlignLeft size={14} />
+                        </button>
+                        <button
+                            onClick={() => setLocalSong({ ...localSong, settings: { ...localSong.settings, align: 'center' } })}
+                            className={`p-1.5 rounded ${(!localSong.settings.align || localSong.settings.align === 'center') ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                            title="Align Center"
+                        >
+                            <AlignCenter size={14} />
+                        </button>
+                        <button
+                            onClick={() => setLocalSong({ ...localSong, settings: { ...localSong.settings, align: 'right' } })}
+                            className={`p-1.5 rounded ${localSong.settings.align === 'right' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                            title="Align Right"
+                        >
+                            <AlignRight size={14} />
+                        </button>
                     </div>
 
                     <button

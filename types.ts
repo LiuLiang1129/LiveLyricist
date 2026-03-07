@@ -4,6 +4,7 @@ export interface SongSettings {
   targetLen: number;
   fontSize: FontSize;
   showProgress: boolean;
+  align?: 'left' | 'center' | 'right';
 }
 
 export interface Line {

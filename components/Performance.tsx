@@ -128,6 +128,21 @@ const Performance: React.FC = () => {
     };
     const fontSizeClass = fontSizes[song.settings.fontSize];
 
+    const alignClasses = {
+        'left': 'justify-start text-left',
+        'center': 'justify-center text-center',
+        'right': 'justify-end text-right'
+    };
+    const currentAlign = song.settings.align || 'center';
+    const alignClass = alignClasses[currentAlign];
+
+    const alignSelfClasses = {
+        'left': 'self-start',
+        'center': 'self-center',
+        'right': 'self-end'
+    };
+    const instructionAlignClass = alignSelfClasses[currentAlign];
+
     return (
         <div className={`fixed inset-0 bg-black text-white flex flex-col ${mode === 'audience' ? 'cursor-none' : ''}`}>
             {/* UI Overlay (Hidden by default or toggled) */}
@@ -184,7 +199,7 @@ const Performance: React.FC = () => {
             )}
 
             {/* Main Display Area */}
-            <div className="flex-1 flex items-center justify-center px-4 md:px-20 text-center w-full h-full relative z-10">
+            <div className={`flex-1 flex items-center px-4 md:px-20 w-full h-full relative z-10 ${alignClass}`}>
                 {blackout ? (
                     <div className="w-4 h-4 rounded-full bg-red-900/20" title="Blackout Active"></div>
                 ) : (
@@ -198,7 +213,7 @@ const Performance: React.FC = () => {
                             {/* Instruction (Top, Prominent) */}
                             {currentLineData?.instruction && (
                                 <div
-                                    className="text-3xl md:text-5xl font-bold px-6 py-4 rounded-xl mx-auto mb-4 animate-in fade-in slide-in-from-top-4"
+                                    className={`text-3xl md:text-5xl font-bold px-6 py-4 rounded-xl mb-4 animate-in fade-in slide-in-from-top-4 ${instructionAlignClass}`}
                                     style={{
                                         color: currentLineData.style?.color || '#a855f7',
                                         backgroundColor: currentLineData.style?.backgroundColor || 'rgba(88, 28, 135, 0.2)'
