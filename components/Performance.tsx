@@ -8,11 +8,10 @@ const Performance: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { songs } = useLibraryStore();
-    const { currentLineIndex, nextLine, prevLine, setCurrentLineIndex, performanceQueue } = useRuntimeStore();
+    const { currentLineIndex, nextLine, prevLine, setCurrentLineIndex, performanceQueue, blackout, setBlackout, setActivePerformSongId } = useRuntimeStore();
     const [showUI, setShowUI] = useState(true);
-    const [blackout, setBlackout] = useState(false);
 
-    const [mode, setMode] = useState<'audience' | 'artist'>('audience');
+    const [mode, setMode] = useState<'audience' | 'artist'>('artist');
 
     const queuedSongs = performanceQueue
         ? performanceQueue.map(id => songs.find(s => s.id === id)).filter((s): s is NonNullable<typeof s> => Boolean(s))
@@ -24,6 +23,12 @@ const Performance: React.FC = () => {
     const nextSong = activeCollection[songIndex + 1];
     const prevSong = activeCollection[songIndex - 1];
 
+    useEffect(() => {
+        if (id) {
+            setActivePerformSongId(id);
+        }
+    }, [id, setActivePerformSongId]);
+
     // Helper to handle legacy string lines vs new Line objects
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const getLineData = useCallback((idx: number) => {
@@ -33,6 +38,16 @@ const Performance: React.FC = () => {
         if (typeof line === 'string') return { content: line, instruction: '' };
         return line;
     }, [song]);
+
+    const handleExit = useCallback(() => {
+        setActivePerformSongId(null);
+        const returnPath = location.state?.returnPath;
+        if (returnPath) {
+            navigate(returnPath);
+        } else {
+            navigate(`/edit/${song?.id}`);
+        }
+    }, [setActivePerformSongId, location.state?.returnPath, navigate, song?.id]);
 
     // Keyboard controls
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -86,12 +101,7 @@ const Performance: React.FC = () => {
         // UI Toggles
         else if (e.key === 'Escape') {
             e.preventDefault();
-            const returnPath = location.state?.returnPath;
-            if (returnPath) {
-                navigate(returnPath);
-            } else {
-                navigate(`/edit/${song.id}`);
-            }
+            handleExit();
         }
         else if (e.key === 'b') {
             // Toggle Blackout screen
@@ -105,7 +115,7 @@ const Performance: React.FC = () => {
             e.preventDefault();
             setMode(prev => prev === 'audience' ? 'artist' : 'audience');
         }
-    }, [song, nextSong, prevSong, currentLineIndex, nextLine, prevLine, setCurrentLineIndex, navigate, location]);
+    }, [song, nextSong, prevSong, currentLineIndex, nextLine, prevLine, setCurrentLineIndex, navigate, location, handleExit, setBlackout]);
 
     useEffect(() => {
         window.addEventListener('keydown', handleKeyDown);
@@ -120,11 +130,17 @@ const Performance: React.FC = () => {
         ? ((currentLineIndex + 1) / song.lines.length) * 100
         : 0;
 
-    // Font size calculation
-    const fontSizes = {
-        'L': 'text-6xl md:text-7xl',
-        'XL': 'text-7xl md:text-8xl',
-        'XXL': 'text-8xl md:text-9xl'
+    const isVertical = song.settings.layout === 'vertical';
+
+    // Font size calculation for Control Panel (Scaled down to prevent laptop screen cutoff, especially for vertical)
+    const fontSizes = isVertical ? {
+        'L': 'text-4xl',
+        'XL': 'text-5xl',
+        'XXL': 'text-6xl'
+    } : {
+        'L': 'text-5xl md:text-6xl',
+        'XL': 'text-6xl md:text-7xl',
+        'XXL': 'text-7xl md:text-8xl'
     };
     const fontSizeClass = fontSizes[song.settings.fontSize];
 
@@ -163,14 +179,7 @@ const Performance: React.FC = () => {
                     </button>
                     <button className="text-gray-600 p-2 rounded border border-gray-800 text-xs hidden md:block">Space / → Next</button>
                     <button
-                        onClick={() => {
-                            const returnPath = location.state?.returnPath;
-                            if (returnPath) {
-                                navigate(returnPath);
-                            } else {
-                                navigate(`/edit/${song.id}`);
-                            }
-                        }}
+                        onClick={handleExit}
                         className="text-gray-500 hover:text-white transition-colors"
                     >
                         <X size={32} />
@@ -199,50 +208,66 @@ const Performance: React.FC = () => {
             )}
 
             {/* Main Display Area */}
-            <div className={`flex-1 flex items-center px-4 md:px-20 w-full h-full relative z-10 ${alignClass}`}>
+            <div className={`flex-1 grid px-4 md:px-20 w-full h-full relative z-10`} style={{ gridTemplateRows: 'auto 1fr auto' }}>
                 {blackout ? (
-                    <div className="w-4 h-4 rounded-full bg-red-900/20" title="Blackout Active"></div>
+                    <div className="row-start-2 place-self-center w-4 h-4 rounded-full bg-red-900/20" title="Blackout Active"></div>
                 ) : (
-                    mode === 'audience' ? (
-                        <h1 className={`font-bold leading-tight select-none tracking-wide transition-all duration-200 ${fontSizeClass}`}>
-                            {currentLineData?.content || <span className="text-gray-900">—</span>}
-                        </h1>
-                    ) : (
-                        // Artist Mode View
-                        <div className="flex flex-col gap-6 max-w-5xl w-full">
-                            {/* Instruction (Top, Prominent) */}
-                            {currentLineData?.instruction && (
-                                <div
-                                    className={`text-3xl md:text-5xl font-bold px-6 py-4 rounded-xl mb-4 animate-in fade-in slide-in-from-top-4 ${instructionAlignClass}`}
-                                    style={{
-                                        color: currentLineData.style?.color || '#a855f7',
-                                        backgroundColor: currentLineData.style?.backgroundColor || 'rgba(88, 28, 135, 0.2)'
-                                    }}
-                                >
-                                    {currentLineData.instruction}
+                    <>
+                        {/* Top Area: Fixed height anchor to keep middle section consistently placed */}
+                        <div className={`flex flex-col justify-end w-full max-w-5xl place-self-center pb-8 ${isVertical ? 'h-[4rem] md:h-[8rem]' : 'h-[10rem] md:h-[14rem]'}`}>
+                        </div>
+
+                        {/* Middle Area: Current Lyric (Aligns top if vertical, centers if horizontal) */}
+                        <div className={`flex w-full max-w-5xl justify-self-center ${isVertical ? 'self-start mt-4 md:mt-8' : 'self-center'} ${alignClass}`}>
+                            <h1 
+                                className={`font-bold leading-tight select-none tracking-wide transition-all duration-200 ${fontSizeClass}`}
+                                style={{ writingMode: song.settings.layout === 'vertical' ? 'vertical-rl' : 'horizontal-tb' }}
+                            >
+                                {currentLineData?.content || <span className="text-gray-900">—</span>}
+                            </h1>
+                        </div>
+
+                        {/* Bottom Area: Instructions & Upcoming Lines */}
+                        <div className={`flex flex-col justify-start w-full max-w-5xl place-self-center pt-8 ${isVertical ? 'h-[12rem] md:h-[16rem]' : 'h-[16rem] md:h-[20rem]'} ${mode === 'artist' ? 'border-t border-gray-800' : ''} text-${currentAlign || 'center'}`}>
+                            
+                            {/* Instruction (Now BELOW lyrics, only visible in Artist mode as requested) */}
+                            {mode === 'artist' && currentLineData?.instruction && (
+                                <div className={`flex w-full ${currentAlign === 'left' ? 'justify-start' : currentAlign === 'right' ? 'justify-end' : 'justify-center'} mb-6`}>
+                                    <div
+                                        className={`text-3xl md:text-5xl font-bold px-6 py-4 rounded-xl animate-in fade-in slide-in-from-bottom-4`}
+                                        style={{
+                                            color: currentLineData.style?.color || '#a855f7',
+                                            backgroundColor: currentLineData.style?.backgroundColor || 'rgba(88, 28, 135, 0.2)',
+                                            writingMode: song.settings.layout === 'vertical' ? 'vertical-rl' : 'horizontal-tb'
+                                        }}
+                                    >
+                                        {currentLineData.instruction}
+                                    </div>
                                 </div>
                             )}
 
-                            {/* Current Line */}
-                            <h1 className={`font-bold leading-tight ${fontSizeClass} transition-all duration-200`}>
-                                {currentLineData?.content || <span className="text-gray-800">—</span>}
-                            </h1>
-
-                            {/* Upcoming Lines */}
-                            <div className="flex flex-col gap-4 mt-8 w-full border-t border-gray-800 pt-8">
-                                {getLineData(currentLineIndex + 1) && (
-                                    <div className="text-4xl md:text-6xl font-bold text-gray-300 transition-all duration-300">
-                                        {getLineData(currentLineIndex + 1)?.content}
-                                    </div>
-                                )}
-                                {getLineData(currentLineIndex + 2) && (
-                                    <div className="text-2xl md:text-4xl font-medium text-gray-500 transition-all duration-300">
-                                        {getLineData(currentLineIndex + 2)?.content}
-                                    </div>
-                                )}
-                            </div>
+                            {mode === 'artist' && (
+                                <div className="flex flex-col gap-4">
+                                    {getLineData(currentLineIndex + 1) && (
+                                        <div 
+                                            className="text-4xl md:text-6xl font-bold text-gray-300 transition-all duration-300"
+                                            style={{ writingMode: song.settings.layout === 'vertical' ? 'vertical-rl' : 'horizontal-tb' }}
+                                        >
+                                            {getLineData(currentLineIndex + 1)?.content}
+                                        </div>
+                                    )}
+                                    {getLineData(currentLineIndex + 2) && (
+                                        <div 
+                                            className="text-2xl md:text-4xl font-medium text-gray-500 transition-all duration-300"
+                                            style={{ writingMode: song.settings.layout === 'vertical' ? 'vertical-rl' : 'horizontal-tb' }}
+                                        >
+                                            {getLineData(currentLineIndex + 2)?.content}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    )
+                    </>
                 )}
             </div>
 

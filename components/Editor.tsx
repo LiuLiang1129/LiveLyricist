@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Wand2, Loader2, Check, Settings, X, ChevronUp, ChevronDown, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useLibraryStore, useRuntimeStore } from '../store/useStore';
 import { splitLyrics } from '../services/splitter';
+import { startPerformance } from '../utils/windowManager';
 import { Song, FontSize, Line } from '../types';
 
 const Editor: React.FC = () => {
@@ -272,11 +273,9 @@ const Editor: React.FC = () => {
         }
     };
 
-    const handleGoToPerform = () => {
+    const handleGoToPerform = async () => {
         updateSong(song!.id, localSong);
-        setCurrentLineIndex(activeLineIdx);
-        setPerformanceQueue(null); // Clear playlist context when playing from Editor
-        navigate(`/perform/${song!.id}`);
+        await startPerformance(song!.id, null, navigate);
     };
 
     return (
@@ -364,6 +363,24 @@ const Editor: React.FC = () => {
                             title="Align Right"
                         >
                             <AlignRight size={14} />
+                        </button>
+                    </div>
+
+                    {/* Layout Controls */}
+                    <div className="flex bg-gray-800 rounded-lg p-1 mr-4 border border-gray-700">
+                        <button
+                            onClick={() => setLocalSong({ ...localSong, settings: { ...localSong.settings, layout: 'horizontal' } })}
+                            className={`px-2 py-1 rounded text-xs font-bold transition-all ${(!localSong.settings.layout || localSong.settings.layout === 'horizontal') ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                            title="Horizontal Layout"
+                        >
+                            橫
+                        </button>
+                        <button
+                            onClick={() => setLocalSong({ ...localSong, settings: { ...localSong.settings, layout: 'vertical' } })}
+                            className={`px-2 py-1 rounded text-xs font-bold transition-all ${localSong.settings.layout === 'vertical' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                            title="Vertical Layout"
+                        >
+                            直
                         </button>
                     </div>
 

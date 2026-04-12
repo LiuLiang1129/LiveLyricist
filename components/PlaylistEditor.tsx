@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Plus, X, GripVertical, Trash2, Music } from 'lucide-react';
 import { useLibraryStore, useRuntimeStore } from '../store/useStore';
 import { Playlist } from '../types';
+import { startPerformance } from '../utils/windowManager';
 
 const PlaylistEditor: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -68,8 +69,7 @@ const PlaylistEditor: React.FC = () => {
             targetSongId = selectedSongId;
         }
 
-        setPerformanceQueue(playlist.songs);
-        navigate(`/perform/${targetSongId}`, { state: { returnPath: `/playlist/${playlist.id}` } });
+        startPerformance(targetSongId, playlist.songs, navigate, `/playlist/${playlist.id}`);
     };
 
     const handleDelete = () => {

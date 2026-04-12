@@ -5,6 +5,7 @@ export interface SongSettings {
   fontSize: FontSize;
   showProgress: boolean;
   align?: 'left' | 'center' | 'right';
+  layout?: 'horizontal' | 'vertical';
 }
 
 export interface Line {
@@ -56,12 +57,15 @@ export interface LibraryState {
   importLibrary: (data: LibraryBackup) => void;
 }
 
-// Runtime state for the editor/performance
 export interface RuntimeState {
   currentLineIndex: number;
   performanceQueue: string[] | null; // List of song IDs to play in order. If inull, use all songs.
+  activePerformSongId: string | null;
+  blackout: boolean;
   setCurrentLineIndex: (index: number) => void;
   setPerformanceQueue: (queue: string[] | null) => void;
+  setActivePerformSongId: (id: string | null) => void;
+  setBlackout: (blackout: boolean) => void;
   nextLine: (totalLines: number) => void;
   prevLine: () => void;
 }

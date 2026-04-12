@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Copy, Search, Play, Download, Upload, ChevronUp, ChevronDown, ListMusic, Music } from 'lucide-react';
 import { useLibraryStore } from '../store/useStore';
 import { Playlist, Song } from '../types';
+import { startPerformance } from '../utils/windowManager';
 
 const Library: React.FC = () => {
   const navigate = useNavigate();
@@ -283,7 +284,7 @@ const Library: React.FC = () => {
                     onClick={(e) => {
                       e.stopPropagation();
                       setActiveSong(song.id);
-                      navigate(`/perform/${song.id}`);
+                      startPerformance(song.id, null, navigate);
                     }}
                     className="p-2 hover:bg-green-500/20 text-green-400 rounded-lg"
                     title="Performance Mode"

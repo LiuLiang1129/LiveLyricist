@@ -4,6 +4,7 @@ import Library from './components/Library';
 import Editor from './components/Editor';
 import Performance from './components/Performance';
 import PlaylistEditor from './components/PlaylistEditor';
+import Audience from './components/Audience';
 
 const App: React.FC = () => {
   return (
@@ -13,6 +14,7 @@ const App: React.FC = () => {
         <Route path="/edit/:id" element={<Editor />} />
         <Route path="/playlist/:id" element={<PlaylistEditor />} />
         <Route path="/perform/:id" element={<Performance />} />
+        <Route path="/audience" element={<Audience />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

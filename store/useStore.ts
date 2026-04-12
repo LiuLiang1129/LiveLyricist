@@ -75,8 +75,12 @@ export const useLibraryStore = create<LibraryState>()(
 export const useRuntimeStore = create<RuntimeState>((set) => ({
   currentLineIndex: 0,
   performanceQueue: null,
+  activePerformSongId: null,
+  blackout: false,
   setCurrentLineIndex: (index) => set({ currentLineIndex: Math.max(0, index) }),
   setPerformanceQueue: (queue) => set({ performanceQueue: queue }),
+  setActivePerformSongId: (id) => set({ activePerformSongId: id }),
+  setBlackout: (blackout) => set({ blackout }),
   nextLine: (totalLines) => set((state) => ({
     currentLineIndex: totalLines <= 0
       ? 0
@@ -86,3 +90,35 @@ export const useRuntimeStore = create<RuntimeState>((set) => ({
     currentLineIndex: Math.max(state.currentLineIndex - 1, 0)
   })),
 }));
+
+// Cross-window synchronization for RuntimeState
+if (typeof window !== 'undefined') {
+  const channel = new BroadcastChannel('livelyricist-runtime');
+  let isReceivingNetworkUpdate = false;
+
+  // Listen for broadcasted state from other windows
+  channel.onmessage = (event) => {
+    if (event.data && event.data.type === 'SYNC_RUNTIME') {
+      isReceivingNetworkUpdate = true;
+      try {
+        // Use set state directly. This will trigger subscribe, but the lock prevents rebroadcast.
+        useRuntimeStore.setState(event.data.state);
+      } finally {
+        isReceivingNetworkUpdate = false;
+      }
+    }
+  };
+
+  // Broadcast state changes
+  useRuntimeStore.subscribe((state) => {
+    if (isReceivingNetworkUpdate) return; // Break infinite loop
+
+    const payload = {
+      currentLineIndex: state.currentLineIndex,
+      performanceQueue: state.performanceQueue,
+      activePerformSongId: state.activePerformSongId,
+      blackout: state.blackout
+    };
+    channel.postMessage({ type: 'SYNC_RUNTIME', state: payload });
+  });
+}
