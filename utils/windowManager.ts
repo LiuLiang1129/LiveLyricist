@@ -18,7 +18,9 @@ export const startPerformance = async (
     setBlackout(false);
 
     // 2. Open the window synchronously to bypass popup blockers
-    const audienceWindow = window.open('/#/audience', 'LivelyricistAudience', 'width=1024,height=768');
+    // Using window.location.pathname correctly preserves base paths like /LiveLyricist/ on GitHub Pages
+    const baseUrl = window.location.origin + window.location.pathname;
+    const audienceWindow = window.open(`${baseUrl}#/audience`, 'LivelyricistAudience', 'width=1024,height=768');
 
     // 3. Navigate the local window FIRST so the user sees a reaction instantly
     navigate(`/perform/${songId}`, { state: { returnPath }});
