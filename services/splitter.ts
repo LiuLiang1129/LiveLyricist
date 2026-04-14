@@ -25,10 +25,41 @@ export const splitLyrics = (raw: string, targetLen: number): Line[] => {
     processSegment(trimmed, targetLen, lines);
   }
 
-  // Restore periods
-  return lines.map(line => ({
-    content: line.replace(/\u0000/g, '.')
-  }));
+  // Restore periods and assign section-aware unique IDs
+  const result: Line[] = [];
+  const generatedIds = new Set<string>();
+  let currentPrefix = 'slide';
+  let currentCounter = 1;
+
+  for (const lineText of lines) {
+    const content = lineText.replace(/\u0000/g, '.');
+
+    // Section detection (e.g. [Verse 1], Chorus, Bridge)
+    const sectionMatch = content.match(/^[[【\({]?\s*(verse|chorus|bridge|intro|outro|pre[- ]?chorus|interlude|hook|v|c)[ \t]*(\d*)[\]】\)}]?\s*:?$/i);
+    if (sectionMatch) {
+      let sectionName = sectionMatch[1].toLowerCase().replace('-', '');
+      if (sectionName === 'v') sectionName = 'verse';
+      if (sectionName === 'c') sectionName = 'chorus';
+      currentPrefix = `${sectionName}${sectionMatch[2] || ''}`;
+      currentCounter = 1;
+    }
+
+    let id = `${currentPrefix}_${currentCounter.toString().padStart(2, '0')}`;
+    let suffixCharCode = 97; // 'a'
+    while (generatedIds.has(id)) {
+      id = `${currentPrefix}_${currentCounter.toString().padStart(2, '0')}_${String.fromCharCode(suffixCharCode)}`;
+      suffixCharCode++;
+    }
+    generatedIds.add(id);
+    currentCounter++;
+
+    result.push({
+      id,
+      content
+    });
+  }
+
+  return result;
 };
 
 const processSegment = (text: string, limit: number, accumulator: string[]) => {

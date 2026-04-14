@@ -33,8 +33,24 @@ const Editor: React.FC = () => {
                     const deepCopy = JSON.parse(JSON.stringify(song));
                     if (deepCopy.settings.showProgress === undefined) deepCopy.settings.showProgress = true;
                     // Migration for legacy lines (string[])
-                    if (deepCopy.lines.length > 0 && typeof deepCopy.lines[0] === 'string') {
-                        deepCopy.lines = (deepCopy.lines as unknown as string[]).map(l => ({ content: l }));
+                    if (deepCopy.lines.length > 0) {
+                        if (typeof deepCopy.lines[0] === 'string') {
+                            deepCopy.lines = (deepCopy.lines as unknown as string[]).map((l, i) => ({ id: `line_${(i+1).toString().padStart(2, '0')}`, content: l }));
+                        } else {
+                            let counter = 1;
+                            const existingIds = new Set(deepCopy.lines.map((l: Line) => l.id).filter(Boolean));
+                            deepCopy.lines.forEach((l: Line) => {
+                                if (!l.id) {
+                                    let newId = `line_${counter.toString().padStart(2, '0')}`;
+                                    while(existingIds.has(newId)) {
+                                        counter++;
+                                        newId = `line_${counter.toString().padStart(2, '0')}`;
+                                    }
+                                    l.id = newId;
+                                    existingIds.add(newId);
+                                }
+                            });
+                        }
                     }
                     return deepCopy;
                 }
@@ -179,6 +195,17 @@ const Editor: React.FC = () => {
         setLocalSong({ ...localSong, lines: newLines });
     };
 
+    const updateLineId = (idx: number, newId: string) => {
+        const newLines = [...localSong.lines];
+        newLines[idx] = { ...newLines[idx], id: newId };
+        setLocalSong({ ...localSong, lines: newLines });
+    };
+
+    const isIdDuplicate = (id: string | undefined, currentIndex: number) => {
+        if (!id) return false;
+        return localSong.lines.some((l, i) => i !== currentIndex && l.id === id);
+    };
+
     const updateInstruction = (idx: number, instruction: string) => {
         const newLines = [...localSong.lines];
         newLines[idx] = { ...newLines[idx], instruction };
@@ -243,10 +270,18 @@ const Editor: React.FC = () => {
             const textBefore = currentText.slice(0, cursorPosition);
             const textAfter = currentText.slice(cursorPosition);
 
+            const baseId = currentLine.id || `line_${(idx+1).toString().padStart(2, '0')}`;
+            let newId = `${baseId}_a`;
+            let suffixCharCode = 97;
+            while(localSong.lines.some(l => l.id === newId)) {
+                suffixCharCode++;
+                newId = `${baseId}_${String.fromCharCode(suffixCharCode)}`;
+            }
+
             const newLines = [...localSong.lines];
 
             newLines[idx] = { ...currentLine, content: textBefore };
-            newLines.splice(idx + 1, 0, { content: textAfter });
+            newLines.splice(idx + 1, 0, { id: newId, content: textAfter });
 
             setLocalSong({ ...localSong, lines: newLines });
             setActiveLineIdx(idx + 1);
@@ -472,9 +507,18 @@ const Editor: React.FC = () => {
                                     }`}
                                 onClick={() => setActiveLineIdx(idx)}
                             >
-                                <span className="text-xs text-gray-600 font-mono mt-2 w-6 text-right select-none">{idx + 1}</span>
+                                <div className="flex flex-col items-center gap-1 mt-1 w-20 shrink-0">
+                                    <span className="text-xs text-gray-600 font-mono select-none bg-gray-900 px-1.5 py-0.5 rounded-md border border-gray-800">{idx + 1}</span>
+                                    <input
+                                        value={line.id || ''}
+                                        onChange={(e) => updateLineId(idx, e.target.value)}
+                                        className={`w-full bg-gray-950/80 border ${isIdDuplicate(line.id, idx) ? 'border-red-500 text-red-400 focus:border-red-400' : 'border-gray-800 text-gray-500 focus:border-purple-500 focus:text-purple-300'} rounded p-1 text-[10px] text-center font-mono focus:outline-none transition-colors shadow-inner`}
+                                        placeholder="slide_id"
+                                        title={isIdDuplicate(line.id, idx) ? "Duplicate ID!" : "Slide ID"}
+                                    />
+                                </div>
 
-                                <div className="flex-1 flex flex-col gap-2">
+                                <div className="flex-1 flex flex-col gap-2 min-w-0">
                                     <textarea
                                         ref={el => lineInputsRef.current[idx] = el}
                                         value={line.content}

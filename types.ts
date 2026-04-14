@@ -9,6 +9,7 @@ export interface SongSettings {
 }
 
 export interface Line {
+  id?: string;
   content: string;
   instruction?: string;
   style?: {
